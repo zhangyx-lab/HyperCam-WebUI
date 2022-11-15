@@ -22,7 +22,10 @@ async function fullAcquire() {
 	for (const key in imageList) delete imageList[key];
 	while (acquireList.length < list.length) await delay(10);
 	const task = acquireList.map((el) =>
-		el().then(([img, i]) => (imageList[list[i - 1]?.[0] ?? i] = img))
+		el().then(
+			([img, i]) =>
+				(imageList[list[i - 1]?.[0]?.replace(/\s/gi, "_") ?? i] = img)
+		)
 	);
 	const RGB = await Promise.all([task[0], task[2], task[6]]);
 	const [R, G, B] = await Promise.all(
@@ -63,6 +66,7 @@ window.addEventListener("keydown", (e) => {
 	if ((ctrlKey || metaKey) && key === "s") {
 		e.preventDefault();
 		const group_name = prompt("Name of this capture group:");
+		if (typeof group_name !== "string") return;
 		for (const name in imageList) {
 			saveAs(imageList[name], `${group_name}_${name}.png`);
 		}

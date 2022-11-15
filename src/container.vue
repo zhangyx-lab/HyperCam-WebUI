@@ -28,7 +28,7 @@ const props = defineProps({
 watch(pwm, (val) => localStorage.setItem(`PWM[${index}]`, val.toString()));
 async function loadImage() {
 	dataUrl.value = undefined;
-	await delay((index - 1) * 100);
+	await delay((index - 1) * 200);
 	const response = await fetch(`/acquire?LED=${index}&PWM=${pwm.value}`),
 		blob = await response.blob();
 	dataUrl.value = URL.createObjectURL(blob);
