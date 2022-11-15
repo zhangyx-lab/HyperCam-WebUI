@@ -18,21 +18,21 @@ const props = defineProps({
 		},
 		altImg: {
 			type: String,
-			default: undefined
+			default: undefined,
 		},
 	}),
 	emit = defineEmits(["request"]),
 	dataUrl = ref(undefined),
 	{ index } = props,
-	pwm = ref(parseInt(localStorage.getItem(`PWM[${index}]`) ?? props.pwm));
-watch(pwm, val => localStorage.setItem(`PWM[${index}]`, val.toString()));
+	pwm = ref(parseInt(localStorage.getItem(`PWM[${index}]`) || props.pwm));
+watch(pwm, (val) => localStorage.setItem(`PWM[${index}]`, val.toString()));
 async function loadImage() {
 	dataUrl.value = undefined;
-	await delay((index - 1) * 20);
+	await delay((index - 1) * 100);
 	const response = await fetch(`/acquire?LED=${index}&PWM=${pwm.value}`),
 		blob = await response.blob();
 	dataUrl.value = URL.createObjectURL(blob);
-	return blob;
+	return [blob, props.index];
 }
 if (index > 0) {
 	acquireList.push(loadImage);
