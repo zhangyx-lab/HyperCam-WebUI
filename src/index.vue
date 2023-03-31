@@ -9,7 +9,7 @@ const list = [
 	["Ultra Violet", "#004A", 8],
 	["Blue", "#00AA", 10],
 	["Green", "#080A", 14],
-	["Yellow Green", "#560A", 512],
+	["Yellow Green", "#560A", 255],
 	["Yellow", "#FE06", 72],
 	["Orange", "#840A", 60],
 	["Red", "#A00A", 1],

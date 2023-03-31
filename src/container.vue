@@ -114,7 +114,7 @@ if (index == 0) {
 			</div>
 			<div class="input" v-if="index">
 				<div><span style="opacity:0.5">exposure</span> {{exp.toString().padStart(4, '&nbsp;')}}</div>
-				<input v-if="index" type="range" min="100" max="150" v-model.number="exp">
+				<input v-if="index" type="range" min="50" max="150" v-model.number="exp">
 			</div>
 			<div class="input" v-if="index">
 				<div><span style="opacity:0.5">gain</span> {{gain.toString().padStart(4, '&nbsp;')}}</div>
