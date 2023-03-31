@@ -85,13 +85,6 @@ function clickCalibrate() {
 		emit("request-calibrate")
 	};
 }
-
-if (index == 0) {
-	watch(props.altImg, v => {
-		if (v === undefined) loading.value = true
-		else loading.value = false
-	})
-}
 </script>
 
 <template>
@@ -101,10 +94,10 @@ if (index == 0) {
 		<Spinner v-else-if="loading" style="--ct: #fffa; font-size: 3rem; z-index: 1000;" />
 		<div class="slider-group" v-show="!loading || dataUrl || props.altImg">
 			<div style="font-size: 1.6rem; margin: 0; padding: 0; margin: 1rem;">
-				<div class="button" :class="{'disabled': loading}" @click="clickCapture">
+				<div class="button" :class="{'disabled': index && loading}" @click="clickCapture">
 					<i class="fa fa-camera"></i>
 				</div>
-				<div class="button" :class="{'disabled': loading}" @click="clickCalibrate">
+				<div class="button" :class="{'disabled': index && loading}" @click="clickCalibrate">
 					<i class="fa fa-sync"></i>
 				</div>
 			</div>

@@ -15,8 +15,7 @@ const list = [
 	["Red", "#A00A", 1],
 	["Infrared", "#400A", 5],
 ];
-const imageList = {};
-const rgbImg = ref(undefined);
+const imageList = {};const rgbImg = ref(undefined);
 async function fullCapture(calibrate = false) {
 	rgbImg.value = undefined;
 	for (const key in imageList) delete imageList[key];
