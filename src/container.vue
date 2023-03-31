@@ -1,8 +1,8 @@
 <script setup>
 import { ref, watch } from "vue";
-import { acquireList } from "./index.vue";
+import { captureList } from "./index.vue";
 import Spinner from "./spinner.vue";
-import { delay } from "./util.js";
+
 const props = defineProps({
 		index: {
 			type: Number,
@@ -14,51 +14,115 @@ const props = defineProps({
 		},
 		pwm: {
 			type: Number,
-			default: 1,
+			default: 64,
+		},
+		exp: {
+			type: Number,
+			default: 100,
+		},
+		gain: {
+			type: Number,
+			default: 0,
 		},
 		altImg: {
 			type: String,
 			default: undefined,
 		},
 	}),
-	emit = defineEmits(["request"]),
+	emit = defineEmits(["request-capture", "request-calibrate"]),
+	loading = ref(false),
 	dataUrl = ref(undefined),
-	{ index } = props,
-	pwm = ref(parseInt(localStorage.getItem(`PWM[${index}]`) || props.pwm));
-watch(pwm, (val) => localStorage.setItem(`PWM[${index}]`, val.toString()));
-async function loadImage() {
+	{ index } = props;
+// Create reverse-linkable local reference variables
+function createLocalIntRef(key, ...args) {
+	let r = ref(parseInt(localStorage.getItem(`${key}[${index}]`) || props[key]));
+	watch(r, v => localStorage.setItem(`${key}[${index}]`, v.toString()));
+	return r;
+}
+
+const [pwm, exp, gain] = ["pwm", "exp", "gain"].map(createLocalIntRef);
+
+async function loadImage(calibrate = false) {
 	dataUrl.value = undefined;
-	await delay((index - 1) * 200);
-	const response = await fetch(`/acquire?LED=${index}&PWM=${pwm.value}`),
-		blob = await response.blob();
+	const query_object = calibrate
+		? { led: index }
+		: {
+			led: index,
+			pwm: pwm.value,
+			exp: exp.value,
+			gain: gain.value,
+		},
+		query = Object.entries(query_object).map(([k, v]) => `${k}=${v}`).join('&');
+	loading.value = true;
+	const [headers, blob] = await fetch(`/capture?${query}`)
+		.then(async res => [res.headers, await res.blob()])
+		.finally(() => loading.value = false);
 	dataUrl.value = URL.createObjectURL(blob);
+	for (const [k, t] of [['pwm', pwm], ['exp', exp], ['gain', gain]]) {
+		const key = `cap-prop-${k}`
+		if (headers.has(key))
+			t.value = parseInt(headers.get(key));
+	}
 	return [blob, props.index];
 }
+
 if (index > 0) {
-	acquireList.push(loadImage);
+	captureList.push(loadImage);
 }
-function click() {
-	if (index) loadImage();
-	else emit("request");
+
+function clickCapture() {
+	if (index) loadImage(false);
+	else {
+		loading.value = true;
+		emit("request-capture")
+	};
+}
+
+function clickCalibrate() {
+	if (index) loadImage(true);
+	else {
+		loading.value = true;
+		emit("request-calibrate")
+	};
+}
+
+if (index == 0) {
+	watch(props.altImg, v => {
+		if (v === undefined) loading.value = true
+		else loading.value = false
+	})
 }
 </script>
 
 <template>
-	<div class="container">
+	<div class="container" :class="{empty: !(dataUrl || props.altImg || loading)}">
 		<img v-if="dataUrl" :src="dataUrl" />
 		<img v-else-if="props.altImg" :src="props.altImg" />
-		<Spinner v-else style="--ct: #fffa; font-size: 2rem" />
+		<Spinner v-else-if="loading" style="--ct: #fffa; font-size: 3rem; z-index: 1000;" />
+		<div class="slider-group" v-show="!loading || dataUrl || props.altImg">
+			<div style="font-size: 1.6rem; margin: 0; padding: 0; margin: 1rem;">
+				<div class="button" :class="{'disabled': loading}" @click="clickCapture">
+					<i class="fa fa-camera"></i>
+				</div>
+				<div class="button" :class="{'disabled': loading}" @click="clickCalibrate">
+					<i class="fa fa-sync"></i>
+				</div>
+			</div>
+			<div class="input" v-if="index">
+				<div><span style="opacity:0.5">pwm</span> {{pwm.toString().padStart(4, '&nbsp;')}}</div>
+				<input v-if="index" type="range" min="0" max="255" v-model.number="pwm">
+			</div>
+			<div class="input" v-if="index">
+				<div><span style="opacity:0.5">exposure</span> {{exp.toString().padStart(4, '&nbsp;')}}</div>
+				<input v-if="index" type="range" min="100" max="150" v-model.number="exp">
+			</div>
+			<div class="input" v-if="index">
+				<div><span style="opacity:0.5">gain</span> {{gain.toString().padStart(4, '&nbsp;')}}</div>
+				<input v-if="index" type="range" min="0" max="999" v-model.number="gain">
+			</div>
+		</div>
 		<div class="alt-info" :style="{ 'background-color': props.color }">
 			<slot></slot>
-			<input
-				v-model.number="pwm"
-				v-if="index"
-				:disabled="!(dataUrl || props.altImg)"
-				@keydown.enter="click"
-			/>
-			<div class="button" v-if="dataUrl || props.altImg" @click="click">
-				<i class="fa fa-sync"></i>
-			</div>
 		</div>
 	</div>
 </template>
@@ -76,40 +140,83 @@ function click() {
 	align-items: center;
 	margin: 10px;
 	position: relative;
-	&:hover .alt-info {
-		opacity: 1;
-		pointer-events: all;
-	}
-	.alt-info {
+
+
+	background-image:
+		linear-gradient(45deg, #6666 25%, transparent 25%),
+		linear-gradient(-45deg, #6666 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, #6666 75%),
+		linear-gradient(-45deg, transparent 75%, #6666 75%);
+	background-size: 20px 20px;
+	background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+
+	.alt-info,
+	.slider-group {
+		position: absolute;
+		left: 0;
+		width: 100%;
+		padding: 0;
 		user-select: none;
 		pointer-events: none;
 		opacity: 0;
-		transition: 0.2s;
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		padding: 0.2em;
-		font-family: "Courier New", Courier, monospace;
-		backdrop-filter: blur(3px);
-		// Layout
-		display: flex;
-		justify-content: center;
-		align-content: center;
-		input {
-			display: block;
-			width: 3em;
-			outline: none;
-			background-color: #fff2;
-			border: 1px solid white;
-			border-radius: 0.2em;
-			margin: 0 1em;
-			text-align: center;
-			&:disabled {
-				border-color: #fff4;
-			}
+		transition: .1s;
+		font-family: "Cascadia Code", "Courier New", Courier, monospace;
+	}
+	&:hover,
+	&.empty {
+		.alt-info,
+		.slider-group {
+			opacity: 1;
+			pointer-events: all;
 		}
 	}
+
+	.slider-group {
+		top: 0;
+		bottom: 2em;
+		backdrop-filter: blur(2px);
+		// Layout
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-content: center;
+		background-color: #0008;
+		& > * {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		.input {
+			div {
+				width: 8em;
+				text-align: right;
+			}
+			input {
+				margin: 0 2em;
+				flex-grow: 1;
+			}
+			// display: block;
+			outline: none;
+			margin: 0.5em 1em;
+			padding: 0;
+		}
+	}
+
+	.alt-info {
+		bottom: 0;
+		height: 2em;
+		backdrop-filter: blur(2px);
+		// Layout
+		font-weight: bold;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		* {
+			display: block;
+			margin: 0 0.5em;
+		}
+	}
+
 	img {
 		max-height: 100%;
 		max-width: 100%;
@@ -120,8 +227,10 @@ function click() {
 	align-items: center;
 	justify-content: center;
 	font-size: 0.8em;
-	padding: 0.125em 0.25em;
+	padding: 0.4em 0.5em;
 	border-radius: 0.3em;
+	border: 1px solid #FFFA;
+	margin: 0 1em;
 	// border: 1px solid white;
 	flex-shrink: 1;
 	transition: 0.2s;
@@ -130,6 +239,10 @@ function click() {
 	}
 	&:active {
 		background-color: #fff4;
+	}
+	&.disabled {
+		pointer-events: none;
+		opacity: 0.5;
 	}
 }
 </style>

@@ -5,7 +5,7 @@ export default defineConfig({
 	plugins: [vue()],
 	server: {
 		proxy: {
-			'/acquire': 'http://hyperCam.local'
+			'/capture': 'http://hyperCam.local:8080'
 		}
 	}
 })

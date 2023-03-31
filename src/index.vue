@@ -17,12 +17,12 @@ const list = [
 ];
 const imageList = {};
 const rgbImg = ref(undefined);
-async function fullAcquire() {
+async function fullCapture(calibrate = false) {
 	rgbImg.value = undefined;
 	for (const key in imageList) delete imageList[key];
-	while (acquireList.length < list.length) await delay(10);
-	const task = acquireList.map((el) =>
-		el().then(
+	while (captureList.length < list.length) await delay(10);
+	const task = captureList.map(capture =>
+		capture(calibrate).then(
 			([img, i]) =>
 				(imageList[list[i - 1]?.[0]?.replace(/\s/gi, "_") ?? i] = img)
 		)
@@ -59,17 +59,32 @@ async function fullAcquire() {
 	const rgbBuf = PNG.sync.write(img, { colorType: 2 });
 	rgbImg.value = URL.createObjectURL(new Blob([rgbBuf]));
 }
-onMounted(fullAcquire);
+// onMounted(fullCapture);
 // Listen for keyboard shortcuts (ctrl-s | cmd-s)
+let suggested_name = "A0"
+function askSaveFile() {
+	const group_name = prompt("Name of this capture group:", suggested_name);
+	if (typeof group_name !== "string") return;
+	try {
+		const
+			head = group_name.replace(/\d*$/gi, ''),
+			idx = /\d*$/gi.exec(group_name)?.[0] ?? "0";
+		suggested_name = head + (parseInt(idx) + 1).toString();
+	} catch (e) {}
+	for (const name in imageList) {
+		saveAs(imageList[name], `${group_name}_${name}.png`);
+	}
+}
 window.addEventListener("keydown", (e) => {
 	const { ctrlKey, metaKey, key } = e;
 	if ((ctrlKey || metaKey) && key === "s") {
 		e.preventDefault();
-		const group_name = prompt("Name of this capture group:");
-		if (typeof group_name !== "string") return;
-		for (const name in imageList) {
-			saveAs(imageList[name], `${group_name}_${name}.png`);
-		}
+		askSaveFile();
+	} else if (key === " ") {
+		e.preventDefault();
+		fullCapture(false)
+			.then(() => delay(200))
+			.then(() => askSaveFile());
 	}
 });
 </script>
@@ -84,14 +99,17 @@ window.addEventListener("keydown", (e) => {
 			:pwm="el[2]"
 			>{{ el[0] }}</Container
 		>
-		<Container :alt-img="rgbImg" @request="fullAcquire"
-			>Synthesized RGB</Container
-		>
+		<Container
+			:alt-img="rgbImg"
+			color="#0008"
+			@request-capture="() => fullCapture(false)"
+			@request-calibrate="() => fullCapture(true)"
+		>Synthesized RGB</Container>
 	</div>
 </template>
 
 <script>
-export const acquireList = [];
+export const captureList = [];
 </script>
 
 
