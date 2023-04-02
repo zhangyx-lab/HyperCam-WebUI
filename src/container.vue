@@ -4,34 +4,35 @@ import { captureList } from "./index.vue";
 import Spinner from "./spinner.vue";
 
 const props = defineProps({
-		index: {
-			type: Number,
-			default: 0,
-		},
-		color: {
-			type: String,
-			default: "000A",
-		},
-		pwm: {
-			type: Number,
-			default: 64,
-		},
-		exp: {
-			type: Number,
-			default: 100,
-		},
-		gain: {
-			type: Number,
-			default: 0,
-		},
-		altImg: {
-			type: String,
-			default: undefined,
-		},
-	}),
+	index: {
+		type: Number,
+		default: 0,
+	},
+	color: {
+		type: String,
+		default: "000A",
+	},
+	pwm: {
+		type: Number,
+		default: 64,
+	},
+	exp: {
+		type: Number,
+		default: 100,
+	},
+	gain: {
+		type: Number,
+		default: 0,
+	},
+	altImg: {
+		type: String,
+		default: undefined,
+	},
+}),
 	emit = defineEmits(["request-capture", "request-calibrate"]),
 	loading = ref(false),
 	dataUrl = ref(undefined),
+	requestErr = ref(undefined),
 	{ index } = props;
 // Create reverse-linkable local reference variables
 function createLocalIntRef(key, ...args) {
@@ -42,8 +43,9 @@ function createLocalIntRef(key, ...args) {
 
 const [pwm, exp, gain] = ["pwm", "exp", "gain"].map(createLocalIntRef);
 
-async function loadImage(calibrate = false) {
+function loadImage(calibrate = false) {
 	dataUrl.value = undefined;
+	requestErr.value = undefined;
 	const query_object = calibrate
 		? { led: index }
 		: {
@@ -54,16 +56,40 @@ async function loadImage(calibrate = false) {
 		},
 		query = Object.entries(query_object).map(([k, v]) => `${k}=${v}`).join('&');
 	loading.value = true;
-	const [headers, blob] = await fetch(`/capture?${query}`)
+	return fetch(`/capture?${query}`)
+		.then(async response => {
+			if (!response.ok) {
+				let message = "Unknown Error";
+				const cType = response.headers
+					.get('Content-Type')
+					.toLowerCase()
+					.split('/')
+				if (cType[0] == 'text') {
+					const payload = await response.text();
+					if (payload) message = payload
+				}
+				requestErr.value = { code: response.status, message }
+			};
+			return response;
+		})
+		.catch((rej, ...args) => {
+			console.error(rej)
+			console.log(typeof rej, Object.keys(rej), ...args)
+			requestErr.value = 'REJECTED'
+			return []
+		})
 		.then(async res => [res.headers, await res.blob()])
+		.then(([headers = {}, blob]) => {
+			if (blob instanceof Blob)
+				dataUrl.value = URL.createObjectURL(blob);
+			for (const [k, t] of [['pwm', pwm], ['exp', exp], ['gain', gain]]) {
+				const key = `cap-prop-${k}`
+				if (headers.has(key))
+					t.value = parseInt(headers.get(key));
+			}
+			return [blob, props.index];
+		})
 		.finally(() => loading.value = false);
-	dataUrl.value = URL.createObjectURL(blob);
-	for (const [k, t] of [['pwm', pwm], ['exp', exp], ['gain', gain]]) {
-		const key = `cap-prop-${k}`
-		if (headers.has(key))
-			t.value = parseInt(headers.get(key));
-	}
-	return [blob, props.index];
 }
 
 if (index > 0) {
@@ -88,29 +114,39 @@ function clickCalibrate() {
 </script>
 
 <template>
-	<div class="container" :class="{empty: !(dataUrl || props.altImg || loading)}">
-		<img v-if="dataUrl" :src="dataUrl" />
+	<div class="container dark" :class="{ empty: !(dataUrl || props.altImg || loading || requestErr) }">
+		<div v-if="requestErr"
+			style="font-size: 1.5em; border: var(--cb-red) 2px solid; padding: 10px; border-radius: 10px;">
+			<h1 style="color: var(--cb-red) !important; line-height: 0.9;">
+				{{ requestErr.code }}
+			</h1>
+			<p style="color: var(--ct-red) !important; margin-top: 10px;">
+				<i class="fa fa-exclamation-circle"></i>
+				{{ requestErr.message }}
+			</p>
+		</div>
+		<img v-else-if="dataUrl" :src="dataUrl" />
 		<img v-else-if="props.altImg" :src="props.altImg" />
-		<Spinner v-else-if="loading" style="--ct: #fffa; font-size: 3rem; z-index: 1000;" />
+		<Spinner v-else-if="loading" style="font-size: 3rem; z-index: 1000;" />
 		<div class="slider-group" v-show="!loading || dataUrl || props.altImg">
 			<div style="font-size: 1.6rem; margin: 0; padding: 0; margin: 1rem;">
-				<div class="button" :class="{'disabled': index && loading}" @click="clickCapture">
+				<btn type="outlined blue" style="margin: 0 1em" :disabled="index && loading" @click="clickCapture">
 					<i class="fa fa-camera"></i>
-				</div>
-				<div class="button" :class="{'disabled': index && loading}" @click="clickCalibrate">
+				</btn>
+				<btn type="outlined red" style="margin: 0 1em" :disabled="index && loading" @click="clickCalibrate">
 					<i class="fa fa-sync"></i>
-				</div>
+				</btn>
 			</div>
 			<div class="input" v-if="index">
-				<div><span style="opacity:0.5">pwm</span> {{pwm.toString().padStart(4, '&nbsp;')}}</div>
+				<div><span>pwm</span> {{ pwm.toString().padStart(4, '&nbsp;') }}</div>
 				<input v-if="index" type="range" min="0" max="255" v-model.number="pwm">
 			</div>
 			<div class="input" v-if="index">
-				<div><span style="opacity:0.5">exposure</span> {{exp.toString().padStart(4, '&nbsp;')}}</div>
+				<div><span>exposure</span> {{ exp.toString().padStart(4, '&nbsp;') }}</div>
 				<input v-if="index" type="range" min="50" max="150" v-model.number="exp">
 			</div>
 			<div class="input" v-if="index">
-				<div><span style="opacity:0.5">gain</span> {{gain.toString().padStart(4, '&nbsp;')}}</div>
+				<div><span>gain</span> {{ gain.toString().padStart(4, '&nbsp;') }}</div>
 				<input v-if="index" type="range" min="0" max="999" v-model.number="gain">
 			</div>
 		</div>
@@ -120,26 +156,35 @@ function clickCalibrate() {
 	</div>
 </template>
 
-<style lang="scss" scoped>
-.container {
-	width: 26vw;
+<style>
+html.light .slider-group {
+	background-color: #FFFA;
+}
+
+html.dark .slider-group {
+	background-color: #000A;
+}
+
+</style><style lang="scss" scoped>.container {
+	width: calc(33% - 2em);
 	min-width: 300px;
-	height: 26vh;
+	height: calc(33% - 2em);
 	min-height: 200px;
-	background-color: #111;
+	background-color: var(--cf-next-next-level);
 	flex-grow: 1;
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	margin: 10px;
+	margin: 1em;
 	position: relative;
-
+	overflow: hidden;
+	border-radius: 0.5em;
 
 	background-image:
-		linear-gradient(45deg, #6666 25%, transparent 25%),
-		linear-gradient(-45deg, #6666 25%, transparent 25%),
-		linear-gradient(45deg, transparent 75%, #6666 75%),
-		linear-gradient(-45deg, transparent 75%, #6666 75%);
+		linear-gradient(45deg, var(--cf-next-next-level) 25%, transparent 25%),
+		linear-gradient(-45deg, var(--cf-next-next-level) 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, var(--cf-next-next-level) 75%),
+		linear-gradient(-45deg, transparent 75%, var(--cf-next-next-level) 75%);
 	background-size: 20px 20px;
 	background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 
@@ -154,9 +199,12 @@ function clickCalibrate() {
 		opacity: 0;
 		transition: .1s;
 		font-family: "Cascadia Code", "Courier New", Courier, monospace;
+		color: var(--ct-gray-dark)
 	}
+
 	&:hover,
 	&.empty {
+
 		.alt-info,
 		.slider-group {
 			opacity: 1;
@@ -173,21 +221,24 @@ function clickCalibrate() {
 		flex-direction: column;
 		justify-content: center;
 		align-content: center;
-		background-color: #0008;
-		& > * {
+
+		&>* {
 			display: flex;
 			align-items: center;
 			justify-content: center;
 		}
+
 		.input {
 			div {
 				width: 8em;
 				text-align: right;
 			}
+
 			input {
 				margin: 0 2em;
 				flex-grow: 1;
 			}
+
 			// display: block;
 			outline: none;
 			margin: 0.5em 1em;
@@ -204,6 +255,8 @@ function clickCalibrate() {
 		display: flex;
 		justify-content: center;
 		align-items: center;
+		// Style
+		color: white;
 		* {
 			display: block;
 			margin: 0 0.5em;
@@ -214,28 +267,4 @@ function clickCalibrate() {
 		max-height: 100%;
 		max-width: 100%;
 	}
-}
-.button {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 0.8em;
-	padding: 0.4em 0.5em;
-	border-radius: 0.3em;
-	border: 1px solid #FFFA;
-	margin: 0 1em;
-	// border: 1px solid white;
-	flex-shrink: 1;
-	transition: 0.2s;
-	&:hover {
-		background-color: #fff8;
-	}
-	&:active {
-		background-color: #fff4;
-	}
-	&.disabled {
-		pointer-events: none;
-		opacity: 0.5;
-	}
-}
-</style>
+}</style>
