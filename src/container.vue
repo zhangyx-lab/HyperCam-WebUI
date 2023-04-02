@@ -28,8 +28,9 @@ const props = defineProps({
 		type: String,
 		default: undefined,
 	},
-}),
-	emit = defineEmits(["request-capture", "request-calibrate"]),
+});
+const emit = defineEmits(["request-capture", "request-calibrate"]);
+const
 	loading = ref(false),
 	dataUrl = ref(undefined),
 	requestErr = ref(undefined),
@@ -37,7 +38,9 @@ const props = defineProps({
 // Create reverse-linkable local reference variables
 function createLocalIntRef(key, ...args) {
 	let r = ref(parseInt(localStorage.getItem(`${key}[${index}]`) || props[key]));
+	watch(r, v => { localStorage.setItem(`${key}[${index}]`, v.toString()) });
 	watch(r, v => localStorage.setItem(`${key}[${index}]`, v.toString()));
+	watch(r, v => { localStorage.setItem(`${key}[${index}]`, v.toString()) });
 	return r;
 }
 
@@ -164,8 +167,10 @@ html.light .slider-group {
 html.dark .slider-group {
 	background-color: #000A;
 }
+</style>
 
-</style><style lang="scss" scoped>.container {
+<style lang="scss" scoped>
+.container {
 	width: calc(33% - 2em);
 	min-width: 300px;
 	height: calc(33% - 2em);
@@ -257,6 +262,8 @@ html.dark .slider-group {
 		align-items: center;
 		// Style
 		color: white;
+
+
 		* {
 			display: block;
 			margin: 0 0.5em;
@@ -267,4 +274,5 @@ html.dark .slider-group {
 		max-height: 100%;
 		max-width: 100%;
 	}
-}</style>
+}
+</style>
