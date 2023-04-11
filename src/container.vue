@@ -56,6 +56,7 @@ function loadImage(calibrate = false) {
 			pwm: pwm.value,
 			exp: exp.value,
 			gain: gain.value,
+
 		},
 		query = Object.entries(query_object).map(([k, v]) => `${k}=${v}`).join('&');
 	loading.value = true;
@@ -83,6 +84,7 @@ function loadImage(calibrate = false) {
 		})
 		.then(async res => [res.headers, await res.blob()])
 		.then(([headers = {}, blob]) => {
+			console.log(blob, URL.createObjectURL(blob))
 			if (blob instanceof Blob)
 				dataUrl.value = URL.createObjectURL(blob);
 			for (const [k, t] of [['pwm', pwm], ['exp', exp], ['gain', gain]]) {

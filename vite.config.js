@@ -13,14 +13,12 @@ function loadOptional(filename, processor = JSON.parse) {
 // https://code.visualstudio.com/docs/languages/jsconfig
 const
 	jsconfig = loadOptional('jsconfig.json') ?? {},
-	backendAPIs = loadOptional(
-		['var', 'backendAPIs'],
-		buf => buf.toString().trim().split('\n')
-	) ?? [],
+	backendAPIs = ['log', 'capture', 'restart-server', 'restart-driver'],
 	backendHostName = loadOptional(
 		['var', 'backend'],
 		b => b.toString().trim()
-	) ?? "localhost";
+		) ?? "localhost";
+console.log(backendHostName, backendAPIs)
 // Extract optional configuration entries
 const
 	aliasPaths = Object.entries(jsconfig?.compilerOptions?.paths ?? {}),

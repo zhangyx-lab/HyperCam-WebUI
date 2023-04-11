@@ -5,7 +5,6 @@ import '@CR/fa/all.min.css'
 import { createApp } from 'vue'
 import App from './src/index.vue'
 import * as components from './components'
-import connectWS from './src/socket'
 import { createRouter, createWebHistory } from 'vue-router'
 // Create Vue Application
 const Vue = createApp(App)

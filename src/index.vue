@@ -10,7 +10,9 @@ import Switch from "@CC/header/ColorSchemeSwitch.vue"
 import { delay } from "./util";
 
 import _logView, { wsAlive } from "./logView.vue"
+import _preview from './preview.vue'
 const logView = () => $("Server Log", _logView);
+const preview = () => $("Live Camera View", _preview);
 
 const list = [
 	["Ultra Violet", "#004A", 8],
@@ -129,7 +131,7 @@ window.addEventListener("keydown", (e) => {
 		<div style="flex-grow: 1"></div>
 		<Btn
 			type="seamless gray"
-			@click="() => alert('not implemented', 'sorry')"><i class="fa fa-video"></i></Btn>
+			@click="preview"><i class="fa fa-video"></i></Btn>
 		<Btn
 			type="seamless gray"
 			@click="logView"><i v-if="wsAlive" class="fa fa-terminal"></i><i v-else class="fa fa-sync rotate-infinite"></i>
@@ -164,6 +166,13 @@ body {
 	display: flex;
 	overflow-x: hidden;
 	overflow-y: scroll;
+	/* Hide scrollbar for Chrome, Safari and Opera */
+	&::-webkit-scrollbar {
+	display: none;
+	}
+	/* Hide scrollbar for IE, Edge and Firefox */
+	-ms-overflow-style: none;  /* IE and Edge */
+	scrollbar-width: none;  /* Firefox */
 }
 
 .wrapper {

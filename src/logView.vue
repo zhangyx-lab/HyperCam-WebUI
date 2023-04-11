@@ -79,7 +79,7 @@ function scrollLog(hasNew = false) {
 watch(autoScroll, val => { if (val) scrollLog() })
 function pushLog(event) {
 	const log = JSON.parse(event.data);
-	console.info(logList.push(log));
+	logList.push(log);
 	newLogCb();
 	// Scroll to bottom
 	scrollLog(true);
